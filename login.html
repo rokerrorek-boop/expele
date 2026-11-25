@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#101116"><meta name="robots" content="noindex"><title>Expele — test logowania</title>
+<style>
+:root{color-scheme:dark;--bg:#101116;--panel:#17191f;--line:#30343b;--muted:#a1a6b0;--accent:#c4f76b}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 0,#263322 0,transparent 55%),var(--bg);color:#f3f5f0;font:16px/1.5 system-ui,sans-serif;min-height:100vh}header{padding:24px max(20px,calc((100vw - 1000px)/2));display:flex;justify-content:space-between;align-items:center;gap:12px}a{color:var(--accent);text-decoration:none}.brand{font-weight:900;color:#f3f5f0;display:flex;align-items:center;gap:10px}.mark{display:grid;place-items:center;background:var(--accent);color:#101116;border-radius:9px;width:36px;height:36px;font-weight:950}main{max-width:480px;margin:8vh auto 30px;padding:0 20px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:clamp(22px,5vw,36px);box-shadow:0 20px 60px #0005}.eyebrow{font:700 12px monospace;letter-spacing:1px;color:var(--accent)}h1{font-size:clamp(30px,7vw,42px);line-height:1.1;letter-spacing:-.05em;margin:12px 0}p{color:var(--muted);overflow-wrap:anywhere}button{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;min-height:50px;border-radius:9px;border:1px solid var(--line);background:var(--accent);color:#101116;font:700 15px system-ui;cursor:pointer;margin:16px 0}button:disabled{opacity:.55;cursor:wait}button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:4px}#logout{background:transparent;color:#f3f5f0}#status{font-size:14px;white-space:pre-wrap;min-height:24px}#status.error{color:#ffaaaa}#status.ok{color:var(--accent)}[hidden]{display:none!important}footer{text-align:center;color:var(--muted);font-size:12px;padding:12px}small{color:var(--muted)}
+</style></head><body><header><a href="/" class="brand"><span class="mark">E</span> EXPELE / ARCADE</a><a href="/">← Strona główna</a></header><main><section class="panel"><div class="eyebrow">AUTH / TEST 01</div><h1 id="heading">Zaloguj się.</h1><p id="intro">Sprawdź połączenie konta Google z Expele. Creeper nie potrzebuje Twojego hasła.</p><div id="signedOut"><button id="google" disabled>G&nbsp; Zaloguj przez Google</button><small>Przekierowanie do oficjalnej strony Google. To test, nie publiczna rejestracja.</small></div><div id="signedIn" hidden><p>Sesja Google/Supabase jest aktywna. Konto nie jest jeszcze połączone z rankingiem.</p><button id="logout">Wyloguj</button></div><p id="status" role="status" aria-live="polite">Ładowanie logowania…</p></section></main><footer>Created by Expele. Powered by ziemniak.</footer>
+<script type="module">
+const status = document.querySelector('#status');
+const google = document.querySelector('#google');
+const logout = document.querySelector('#logout');
+const show = (message, type='') => {status.textContent=message; status.className=type;};
+try {
+  if (location.origin !== 'https://expele.pl') throw new Error('Otwórz stronę pod https://expele.pl/login.html po publikacji na GitHub Pages.');
+  const {createClient} = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  const client = createClient('https://gmnjusezghlpwfbuyjvc.supabase.co','sb_publishable_7Yk8CCi_pitbKCxRlQnmUQ_x4OCFOAX',{auth:{flowType:'pkce',detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}});
+  const query = new URLSearchParams(location.search);
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  const callbackError = query.get('error_description') || query.get('error') || fragment.get('error_description') || fragment.get('error');
+  function render(session){
+    const signedIn=Boolean(session?.user);
+    document.querySelector('#signedOut').hidden=signedIn;
+    document.querySelector('#signedIn').hidden=!signedIn;
+    document.querySelector('#heading').textContent=signedIn?'Zalogowano!':'Zaloguj się.';
+    document.querySelector('#intro').textContent=signedIn?'Witaj w Expele. Test logowania zakończony.':'Sprawdź połączenie konta Google z Expele. Creeper nie potrzebuje Twojego hasła.';
+    google.disabled=false;
+    show(signedIn?'Sesja aktywna.':callbackError?'Błąd przekierowania: '+callbackError:'Gotowe do logowania.',signedIn?'ok':callbackError?'error':'');
+  }
+  client.auth.onAuthStateChange((_event,session)=>render(session));
+  const {data,error}=await client.auth.getSession();
+  if(error) throw error;
+  render(data.session);
+  google.addEventListener('click',async()=>{
+    google.disabled=true;show('Przekierowanie do Google…');
+    try {const {error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo:'https://expele.pl/login.html'}});if(error)throw error;}
+    catch(e){show('Nie udało się zalogować: '+e.message,'error');google.disabled=false;}
+  });
+  logout.addEventListener('click',async()=>{
+    logout.disabled=true;
+    try{const {error}=await client.auth.signOut({scope:'local'});if(error)throw error;}
+    catch(e){show('Błąd wylogowania: '+e.message,'error');}
+    finally{logout.disabled=false;}
+  });
+}catch(e){show('Nie udało się uruchomić logowania: '+e.message,'error');}
+</script></body></html>
