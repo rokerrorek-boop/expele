@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#101116"><meta name="robots" content="noindex"><title>Expele — test logowania</title>
+<style>
+:root{color-scheme:dark;--bg:#101116;--panel:#17191f;--line:#30343b;--muted:#a1a6b0;--accent:#c4f76b}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 0,#263322 0,transparent 55%),var(--bg);color:#f3f5f0;font:16px/1.5 system-ui,sans-serif;min-height:100vh}header{padding:24px max(20px,calc((100vw - 1000px)/2));display:flex;justify-content:space-between;align-items:center;gap:12px}a{color:var(--accent);text-decoration:none}.brand{font-weight:900;color:#f3f5f0;display:flex;align-items:center;gap:10px}.mark{display:grid;place-items:center;background:var(--accent);color:#101116;border-radius:9px;width:36px;height:36px;font-weight:950}main{max-width:480px;margin:8vh auto 30px;padding:0 20px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:clamp(22px,5vw,36px);box-shadow:0 20px 60px #0005}.eyebrow{font:700 12px monospace;letter-spacing:1px;color:var(--accent)}h1{font-size:clamp(30px,7vw,42px);line-height:1.1;letter-spacing:-.05em;margin:12px 0}p{color:var(--muted);overflow-wrap:anywhere}button{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;min-height:50px;border-radius:9px;border:1px solid var(--line);background:var(--accent);color:#101116;font:700 15px system-ui;cursor:pointer;margin:16px 0}button:disabled{opacity:.55;cursor:wait}button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:4px}#discord{background:#5865f2;color:white}#logout{background:transparent;color:#f3f5f0}#status{font-size:14px;white-space:pre-wrap;min-height:24px}#status.error{color:#ffaaaa}#status.ok{color:var(--accent)}[hidden]{display:none!important}footer{text-align:center;color:var(--muted);font-size:12px;padding:12px}small{color:var(--muted)}
+input{width:100%;background:#101116;border:1px solid var(--line);border-radius:9px;padding:13px;color:#f3f5f0;font:inherit;margin:5px 0 12px}label{font-size:14px;color:#e1e4dc}input:focus-visible{outline:2px solid var(--accent)}.secondary{background:transparent;color:#f3f5f0}.split{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:22px 0}.split:before,.split:after{content:'';height:1px;flex:1;background:var(--line)}.links{display:flex;flex-wrap:wrap;gap:10px}.links button{flex:1;font-size:13px;min-height:42px;margin:0}.hint{font-size:13px}fieldset{border:0;padding:0;margin:0;min-width:0}</style></head><body><header><a href="/" class="brand"><span class="mark">E</span> EXPELE / ARCADE</a><a href="/">← Strona główna</a></header><main><section class="panel"><div class="eyebrow">AUTH / TEST 04</div><h1 id="heading">Zaloguj się.</h1><p id="intro">Zaloguj się do Expele przez Google, Discord lub e-mail. Creeper nie potrzebuje Twojego hasła.</p><div id="signedOut"><button id="google" disabled>G&nbsp; Zaloguj przez Google</button><button id="discord" disabled>Discord · Zaloguj przez Discord</button><small>Google i Discord otwierają oficjalny ekran logowania.</small><div class="split">LUB E-MAIL</div><form id="emailForm"><fieldset id="emailFields" disabled><label for="email">Adres e-mail</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required><div id="passwordWrap"><label for="password">Hasło</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="72" required></div><p id="modeHint" class="hint" hidden></p><button id="emailSubmit" type="submit">Zaloguj e-mailem</button><div class="links"><button id="signupMode" type="button" class="secondary">Utwórz konto</button><button id="resetMode" type="button" class="secondary">Nie pamiętam hasła</button><button id="loginMode" type="button" class="secondary" hidden>Wróć do logowania</button></div></fieldset></form></div><div id="signedIn" hidden><p>Sesja Supabase jest aktywna. Konto nie jest jeszcze połączone z rankingiem.</p><button id="logout">Wyloguj</button></div><form id="recovery" hidden><fieldset id="recoveryFields"><label for="newPassword">Nowe hasło (minimum 12 znaków)</label><input id="newPassword" type="password" minlength="12" maxlength="72" autocomplete="new-password" required><button type="submit">Zapisz nowe hasło</button><button type="button" id="cancelRecovery" class="secondary">Anuluj i wyloguj</button></fieldset></form><p id="status" role="status" aria-live="polite">Ładowanie logowania…</p></section></main><footer>Created by Expele. Powered by ziemniak.</footer>
+<script>
+(async function () {
+const status = document.querySelector('#status');
+const google = document.querySelector('#google');
+const discord = document.querySelector('#discord');
+const logout = document.querySelector('#logout');
+const show = (message, type='') => {status.textContent=message; status.className=type;};
+try {
+  if (location.origin !== 'https://expele.pl') throw new Error('Otwórz stronę pod https://expele.pl/login.html po publikacji na GitHub Pages.');
+  function withTimeout(promise, ms, message) {
+    let timer;
+    return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(message)),ms);})]).finally(()=>clearTimeout(timer));
+  }
+  function loadSdk(url){
+    return new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      const timer=setTimeout(()=>finish(new Error('Przekroczono czas ładowania biblioteki.')),20000);
+      function finish(error){clearTimeout(timer);s.onload=null;s.onerror=null;if(error){s.remove();reject(error);}else{resolve(window.supabase.createClient);}}
+      s.onload=()=>window.supabase?.createClient?finish():finish(new Error('Biblioteka nie uruchomiła się.'));
+      s.onerror=()=>finish(new Error('Nie można pobrać biblioteki.'));
+      s.src=url;document.head.appendChild(s);
+    });
+  }
+  let createClient;
+  try {createClient=await loadSdk('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');}
+  catch {show('Próba połączenia przez zapasowy CDN…');
+    try {createClient=await loadSdk('https://unpkg.com/@supabase/supabase-js@2');}
+    catch {throw new Error('Nie można załadować Supabase z obu CDN. Spróbuj w innej przeglądarce lub sieci.');}
+  }
+  show('Sprawdzanie sesji…');
+  const client = createClient('https://gmnjusezghlpwfbuyjvc.supabase.co','sb_publishable_7Yk8CCi_pitbKCxRlQnmUQ_x4OCFOAX',{auth:{flowType:'pkce',detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}});
+  const query = new URLSearchParams(location.search);
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  const callbackError = query.get('error_description') || query.get('error') || fragment.get('error_description') || fragment.get('error');
+  const $=id=>document.getElementById(id);
+  let mode='login', recovering=false, busy=false;
+  const redirectTo='https://expele.pl/login.html';
+  function setBusy(value){busy=value;google.disabled=discord.disabled=value;$('emailFields').disabled=value;$('recoveryFields').disabled=value;logout.disabled=value;}
+  function setMode(value){
+    mode=value; $('password').value=''; $('passwordWrap').hidden=value==='reset'; $('password').required=value!=='reset';
+    $('password').minLength=value==='signup'?12:0; $('password').autocomplete=value==='signup'?'new-password':'current-password';
+    $('emailSubmit').textContent=value==='signup'?'Zarejestruj się':value==='reset'?'Wyślij link do resetowania':'Zaloguj e-mailem';
+    $('signupMode').hidden=value!=='login'; $('resetMode').hidden=value!=='login'; $('loginMode').hidden=value==='login';
+    $('modeHint').hidden=value==='login'; $('modeHint').textContent=value==='signup'?'Minimum 12 znaków. Potwierdź rejestrację linkiem z e-maila.':'Otwórz link w tej samej przeglądarce.';
+  }
+  function render(session){
+    const signedIn=Boolean(session?.user);
+    $('signedOut').hidden=signedIn; $('signedIn').hidden=!signedIn||recovering; $('recovery').hidden=!signedIn||!recovering;
+    $('heading').textContent=signedIn?(recovering?'Zmień hasło.':'Zalogowano!'):'Zaloguj się.';
+    $('intro').textContent=signedIn?(recovering?'Ustaw nowe hasło do konta Expele.':'Witaj w Expele. Test logowania zakończony.'):'Zaloguj się do Expele przez Google, Discord lub e-mail. Creeper nie potrzebuje Twojego hasła.';
+  }
+  client.auth.onAuthStateChange((event,session)=>{
+    if(event==='PASSWORD_RECOVERY') recovering=true;
+    if(event==='SIGNED_OUT') recovering=false;
+    render(session);
+    if(!busy && event==='PASSWORD_RECOVERY')show('Link resetowania hasła jest aktywny.','ok');
+  });
+  const {data,error}=await withTimeout(client.auth.getSession(),25000,'Supabase nie zakończył sprawdzania sesji. Odśwież stronę i sprawdź status usługi.');
+  if(error) throw error;
+  function bindProvider(button, provider, name){
+    button.addEventListener('click', async()=>{
+      setBusy(true); show('Przekierowanie do '+name+'…');
+      try {const {error}=await client.auth.signInWithOAuth({provider,options:{redirectTo}});if(error)throw error;}
+      catch(e){show('Nie udało się zalogować: '+e.message,'error');setBusy(false);}
+    });
+  }
+  bindProvider(google,'google','Google'); bindProvider(discord,'discord','Discord');
+  $('signupMode').onclick=()=>{setMode('signup');show('');}; $('resetMode').onclick=()=>{setMode('reset');show('');}; $('loginMode').onclick=()=>{setMode('login');show('');};
+  $('emailForm').addEventListener('submit',async e=>{
+    e.preventDefault(); if(busy)return;
+    const email=$('email').value.trim(), password=$('password').value;
+    setBusy(true);show('Przetwarzanie…');
+    try{
+      if(mode==='signup'){
+        const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:redirectTo}});if(error)throw error;
+        show(data.session?'Zalogowano. Sprawdź, czy Confirm email jest włączone w Supabase.':'Jeśli rejestracja jest możliwa, otrzymasz wiadomość z linkiem. Sprawdź też spam. Otwórz link w tej samej przeglądarce.','ok');
+      }else if(mode==='reset'){
+        const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;
+        show('Jeśli konto istnieje, otrzymasz wiadomość z linkiem do resetowania hasła.','ok');
+      }else{
+        const {error}=await client.auth.signInWithPassword({email,password});if(error)throw error;
+        show('Sesja aktywna.','ok');
+      }
+    }catch(e){show('Nie udało się: '+e.message,'error');}
+    finally{$('password').value='';setBusy(false);}
+  });
+  async function signOut(){setBusy(true);try{const {error}=await client.auth.signOut({scope:'local'});if(error)throw error;recovering=false;setMode('login');show('Wylogowano.','ok');}catch(e){show('Błąd wylogowania: '+e.message,'error');}finally{setBusy(false);}}
+  logout.addEventListener('click',signOut); $('cancelRecovery').addEventListener('click',signOut);
+  $('recovery').addEventListener('submit',async e=>{
+    e.preventDefault();if(!recovering||busy)return;setBusy(true);
+    try{const {error}=await client.auth.updateUser({password:$('newPassword').value});if(error)throw error;recovering=false;const {data}=await client.auth.getSession();render(data.session);show('Hasło zostało zmienione.','ok');}
+    catch(e){show('Nie udało się zmienić hasła: '+e.message,'error');}
+    finally{$('newPassword').value='';setBusy(false);}
+  });
+  render(data.session); setBusy(false);
+  show(callbackError?'Błąd przekierowania: '+callbackError:recovering?'Link resetowania hasła jest aktywny.':data.session?'Sesja aktywna.':'Gotowe do logowania.',callbackError?'error':data.session?'ok':'');
+}catch(e){show('Nie udało się uruchomić logowania: '+e.message,'error');}
+})();
+</script></body></html>
